@@ -1,0 +1,9 @@
+﻿streamlit
+pandas
+openpyxl
+python-barcode
+reportlab
+pywin32
+pystray
+pillow
+pyinstaller

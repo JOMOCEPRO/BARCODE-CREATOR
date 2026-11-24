@@ -1,0 +1,20 @@
+﻿div.stButton > button,
+div.stDownloadButton > button {
+    border-radius: 16px !important;
+    text-transform: uppercase !important;
+    font-weight: 700 !important;
+    letter-spacing: 0.4px !important;
+    padding: 0.6rem 1.3rem !important;
+    border: 1px solid #1e293b !important;
+}
+div.stButton > button[kind="primary"] {
+    background-color: #0f172a !important;
+    color: #ffffff !important;
+    border-color: #0f172a !important;
+}
+h1, h2, h3, h4, label, p, span {
+    text-transform: uppercase !important;
+}
+div[data-testid="stMetricValue"] {
+    font-weight: 800 !important;
+}
