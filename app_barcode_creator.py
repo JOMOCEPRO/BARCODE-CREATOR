@@ -148,20 +148,29 @@ tpl = st.session_state.get("tpl_activa", {})
 st.subheader("3. TAMANO DE ETIQUETA Y DISTRIBUCION EN HOJA DE 4 X 6 PULGADAS")
 
 PRESETS_4X6 = {
+    "3.2 X 2.5 CM (3 COLS X 5 FILAS = 15 TICKETS/HOJA) - ESTANDAR RETAIL 3 COLUMNAS": {
+        "ancho": 32.0, "alto": 25.0, "cols": 3, "filas": 5, "gap_h": 2.0, "gap_v": 2.0
+    },
     "3.2 X 2.9 CM (3 COLS X 4 FILAS = 12 TICKETS/HOJA) - RECOMENDADO CON PRECIO": {
-        "ancho": 32.0, "alto": 29.0, "cols": 3, "filas": 4, "gap_h": 1.0, "gap_v": 2.0
+        "ancho": 32.0, "alto": 29.0, "cols": 3, "filas": 4, "gap_h": 2.0, "gap_v": 2.0
     },
-    "1.8 X 2.0 CM (5 COLS X 7 FILAS = 35 TICKETS/HOJA) - ARTICULOS PEQUENOS": {
-        "ancho": 18.0, "alto": 20.0, "cols": 5, "filas": 7, "gap_h": 1.5, "gap_v": 1.2
+    "1.8 X 2.0 CM (5 COLS X 6 FILAS = 30 TICKETS/HOJA) - ARTICULOS PEQUENOS": {
+        "ancho": 18.0, "alto": 20.0, "cols": 5, "filas": 6, "gap_h": 2.0, "gap_v": 2.0
     },
-    "4.5 X 2.5 CM (2 COLS X 5 FILAS = 10 TICKETS/HOJA) - CAJAS Y COMBOS": {
-        "ancho": 45.0, "alto": 25.0, "cols": 2, "filas": 5, "gap_h": 3.0, "gap_v": 2.5
+    "4.8 X 2.5 CM (2 COLS X 5 FILAS = 10 TICKETS/HOJA) - COMERCIAL 50X25 MM": {
+        "ancho": 48.0, "alto": 25.0, "cols": 2, "filas": 5, "gap_h": 2.0, "gap_v": 2.0
     },
-    "3.0 X 1.5 CM (3 COLS X 9 FILAS = 27 TICKETS/HOJA) - COMPACTA CODIGO + PRECIO": {
-        "ancho": 30.0, "alto": 15.0, "cols": 3, "filas": 9, "gap_h": 1.5, "gap_v": 1.2
+    "4.0 X 2.0 CM (2 COLS X 6 FILAS = 12 TICKETS/HOJA) - FARMACIA / RETAIL": {
+        "ancho": 40.0, "alto": 20.0, "cols": 2, "filas": 6, "gap_h": 2.0, "gap_v": 2.0
+    },
+    "3.0 X 1.5 CM (3 COLS X 8 FILAS = 24 TICKETS/HOJA) - COMPACTA CODIGO + PRECIO": {
+        "ancho": 30.0, "alto": 15.0, "cols": 3, "filas": 8, "gap_h": 2.0, "gap_v": 2.0
+    },
+    "2.5 X 1.5 CM (3 COLS X 8 FILAS = 24 TICKETS/HOJA) - PIEZAS PEQUENAS": {
+        "ancho": 25.0, "alto": 15.0, "cols": 3, "filas": 8, "gap_h": 2.0, "gap_v": 2.0
     },
     "PERSONALIZADO (DEFINIR MEDIDAS Y CUADRICULA EN HOJA 4 X 6 PULGADAS)": {
-        "ancho": 32.0, "alto": 29.0, "cols": 3, "filas": 4, "gap_h": 1.0, "gap_v": 1.0
+        "ancho": 32.0, "alto": 25.0, "cols": 3, "filas": 5, "gap_h": 2.0, "gap_v": 2.0
     },
 }
 
@@ -304,8 +313,24 @@ st.divider()
 # ==============================================================================
 st.subheader("5. SELECCIONAR PRODUCTOS Y CANTIDAD DE TICKETS A IMPRIMIR")
 
+clave_lote_estado = f"lote_persistente_{estado_db['version']}"
+if clave_lote_estado not in st.session_state:
+    st.session_state[clave_lote_estado] = {}
+
+lote_guardado = st.session_state[clave_lote_estado]
+
 df_tabla = df_datos.copy()
-df_tabla.insert(0, "CANTIDAD_TICKETS", 0)
+df_tabla.insert(0, "__ROW_ID__", df_tabla.index.astype(int))
+df_tabla.insert(
+    1,
+    "CANTIDAD_TICKETS",
+    df_tabla["__ROW_ID__"].map(lambda rid: int(lote_guardado.get(int(rid), 0))),
+)
+df_tabla.insert(
+    2,
+    "SELECCIONAR",
+    df_tabla["CANTIDAD_TICKETS"] > 0,
+)
 
 c_busq1, c_busq2, c_busq3 = st.columns([2, 1, 1])
 with c_busq1:
@@ -317,31 +342,75 @@ with c_busq3:
     st.write("")
     aplicar_lote = st.button("ASIGNAR A VISIBLES", use_container_width=True)
 
+c_filt1, c_filt2 = st.columns([2, 1])
+with c_filt1:
+    solo_seleccionados = st.checkbox(
+        f"VER SOLO SELECCIONADOS EN EL LOTE ACTUAL ({len(lote_guardado)} PRODUCTOS)",
+        value=False,
+    )
+with c_filt2:
+    if st.button("LIMPIAR SELECCION DE LOTE", use_container_width=True):
+        st.session_state[clave_lote_estado] = {}
+        st.rerun()
+
+df_vista = df_tabla.copy()
+
+if solo_seleccionados:
+    df_vista = df_vista[df_vista["SELECCIONAR"]].copy()
+
 if filtro_texto.strip():
     termino = filtro_texto.strip().upper()
-    mascara = df_tabla.drop(columns=["CANTIDAD_TICKETS"]).apply(
+    mascara = df_vista[columnas_disponibles].apply(
         lambda fila: fila.str.contains(termino, regex=False).any(), axis=1
     )
-    df_vista = df_tabla[mascara].copy()
-else:
-    df_vista = df_tabla.copy()
+    df_vista = df_vista[mascara].copy()
 
-if aplicar_lote:
-    df_vista["CANTIDAD_TICKETS"] = int(cant_lote)
+if aplicar_lote and not df_vista.empty:
+    for rid in df_vista["__ROW_ID__"].tolist():
+        st.session_state[clave_lote_estado][int(rid)] = int(cant_lote)
+    st.rerun()
 
-clave_tabla = f"editor_{estado_db['version']}_{'_'.join(columnas_disponibles)}"
+clave_tabla = f"editor_{estado_db['version']}_{filtro_texto.strip().upper()}_{solo_seleccionados}"
 df_editado = st.data_editor(
     df_vista,
     key=clave_tabla,
     use_container_width=True,
     hide_index=True,
-    disabled=columnas_disponibles,
+    disabled=["__ROW_ID__"] + columnas_disponibles,
+    column_order=["SELECCIONAR", "CANTIDAD_TICKETS"] + columnas_disponibles,
     column_config={
-        "CANTIDAD_TICKETS": st.column_config.NumberColumn("CANTIDAD TICKETS", min_value=0, max_value=1000, step=1)
+        "SELECCIONAR": st.column_config.CheckboxColumn("SELECCIONAR", default=False),
+        "CANTIDAD_TICKETS": st.column_config.NumberColumn("CANTIDAD TICKETS", min_value=0, max_value=1000, step=1),
     },
 )
 
-seleccionados = df_editado[df_editado["CANTIDAD_TICKETS"] > 0]
+hubo_cambios = False
+for _, fila_ed in df_editado.iterrows():
+    rid = int(fila_ed["__ROW_ID__"])
+    marcado = bool(fila_ed["SELECCIONAR"])
+    cant_actual = int(fila_ed["CANTIDAD_TICKETS"])
+    cant_previa = int(st.session_state[clave_lote_estado].get(rid, 0))
+
+    if marcado and cant_previa == 0 and cant_actual == 0:
+        st.session_state[clave_lote_estado][rid] = 1
+        hubo_cambios = True
+    elif not marcado and cant_previa > 0:
+        st.session_state[clave_lote_estado].pop(rid, None)
+        hubo_cambios = True
+    elif marcado and cant_actual > 0 and cant_actual != cant_previa:
+        st.session_state[clave_lote_estado][rid] = cant_actual
+        hubo_cambios = True
+    elif not marcado and cant_actual > 0:
+        st.session_state[clave_lote_estado][rid] = cant_actual
+        hubo_cambios = True
+
+if hubo_cambios:
+    st.rerun()
+
+lote_final = st.session_state[clave_lote_estado]
+df_tabla["CANTIDAD_TICKETS"] = df_tabla["__ROW_ID__"].map(lambda rid: int(lote_final.get(int(rid), 0)))
+seleccionados = df_tabla[df_tabla["CANTIDAD_TICKETS"] > 0].copy()
+
 total_tickets = int(seleccionados["CANTIDAD_TICKETS"].sum())
 tickets_por_hoja = int(cols * filas)
 total_hojas = (total_tickets + tickets_por_hoja - 1) // tickets_por_hoja if total_tickets > 0 else 0
@@ -352,7 +421,7 @@ m2.metric("CAPACIDAD POR HOJA (4 X 6\")", f"{tickets_por_hoja} TICKETS ({int(col
 m3.metric("HOJAS TROQUELADAS REQUERIDAS", f"{total_hojas}")
 
 if total_tickets == 0:
-    st.info("ASIGNA UNA CANTIDAD MAYOR A 0 EN LA COLUMNA 'CANTIDAD TICKETS' PARA GENERAR E IMPRIMIR.")
+    st.info("MARCA LA CASILLA 'SELECCIONAR' O ASIGNA UNA CANTIDAD MAYOR A 0 PARA GENERAR E IMPRIMIR.")
     st.stop()
 
 cola_impresion = []

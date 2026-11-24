@@ -186,6 +186,20 @@ def _dibujar_guias_corte_pagina(c: canvas.Canvas, margen_izq: float, margen_sup:
     c.restoreState()
 
 
+def _ajustar_texto_al_ancho(c: canvas.Canvas, texto: str, fuente: str, tamano: float, ancho_max: float) -> str:
+    txt = str(texto).strip().upper()
+    while txt and c.stringWidth(txt, fuente, tamano) > ancho_max:
+        txt = txt[:-1]
+    return txt
+
+
+def _ajustar_texto_al_ancho(c: canvas.Canvas, texto: str, fuente: str, tamano: float, ancho_max: float) -> str:
+    txt = str(texto).strip().upper()
+    while txt and c.stringWidth(txt, fuente, tamano) > ancho_max:
+        txt = txt[:-1]
+    return txt
+
+
 def construir_pdf_4x6(cola_tickets: list, config_diseno: dict) -> bytes:
     pdf_buffer = io.BytesIO()
     c = canvas.Canvas(pdf_buffer, pagesize=(ANCHO_HOJA_4X6, ALTO_HOJA_4X6))
@@ -203,8 +217,8 @@ def construir_pdf_4x6(cola_tickets: list, config_diseno: dict) -> bytes:
     ancho_total_grid = (cols * ancho_etq) + ((cols - 1) * gap_h)
     alto_total_grid = (filas * alto_etq) + ((filas - 1) * gap_v)
 
-    margen_izq = max(2.5 * mm, (ANCHO_HOJA_4X6 - ancho_total_grid) / 2.0)
-    margen_sup = max(2.5 * mm, (ALTO_HOJA_4X6 - alto_total_grid) / 2.0)
+    margen_izq = max(0.8 * mm, (ANCHO_HOJA_4X6 - ancho_total_grid) / 2.0)
+    margen_sup = max(2.0 * mm, (ALTO_HOJA_4X6 - alto_total_grid) / 2.0)
 
     tickets_por_hoja = cols * filas
     cache_barcodes = {}
@@ -241,52 +255,62 @@ def construir_pdf_4x6(cola_tickets: list, config_diseno: dict) -> bytes:
         precio_txt = str(ticket.get("precio_formateado", "")).strip().upper()
         mostrar_txt_cod = config_diseno["mostrar_texto_codigo"]
 
-        pad_x = 1.4 * mm
-        pad_y = 1.4 * mm
+        pad_x = 1.3 * mm
+        pad_y = 1.2 * mm
         ancho_util = max(8 * mm, ancho_etq - (2 * pad_x))
 
-        if config_diseno["alto_mm"] <= 22:
-            font_sup, font_inf, font_cod, font_pre = 4.5, 4.8, 4.8, 5.5
+        if config_diseno["alto_mm"] <= 20:
+            font_sup, font_inf, font_cod, font_pre = 4.3, 4.5, 4.6, 5.4
         elif config_diseno["alto_mm"] <= 32:
-            font_sup, font_inf, font_cod, font_pre = 5.5, 5.8, 5.8, 7.5
+            font_sup, font_inf, font_cod, font_pre = 5.4, 5.6, 5.6, 7.4
         else:
-            font_sup, font_inf, font_cod, font_pre = 7.0, 7.2, 7.0, 9.0
+            font_sup, font_inf, font_cod, font_pre = 6.8, 7.0, 6.8, 8.8
+
+        c.saveState()
+        clip = c.beginPath()
+        clip.rect(x + 0.4 * mm, y + 0.4 * mm, max(4 * mm, ancho_etq - 0.8 * mm), max(4 * mm, alto_etq - 0.8 * mm))
+        c.clipPath(clip, stroke=0, fill=0)
 
         cursor_y = y + alto_etq - pad_y - (font_sup * 0.35 * mm)
         c.setFillColorRGB(0, 0, 0)
         c.setFont("Helvetica-Bold", font_sup)
 
-        max_chars = max(10, int(config_diseno["ancho_mm"] * 0.70))
         lineas_sup_render = []
         for txt in sup_list:
-            lineas_sup_render.append(txt[:max_chars])
-            if len(txt) > max_chars and len(sup_list) == 1 and config_diseno["alto_mm"] >= 26:
-                lineas_sup_render.append(txt[max_chars:max_chars * 2])
+            l1 = _ajustar_texto_al_ancho(c, txt, "Helvetica-Bold", font_sup, ancho_util)
+            lineas_sup_render.append(l1)
+            if len(txt) > len(l1) and len(sup_list) == 1 and config_diseno["alto_mm"] >= 25:
+                resto = txt[len(l1):].strip()
+                if resto:
+                    lineas_sup_render.append(_ajustar_texto_al_ancho(c, resto, "Helvetica-Bold", font_sup, ancho_util))
 
         for linea in lineas_sup_render[:2]:
             c.drawCentredString(x + ancho_etq / 2.0, cursor_y, linea)
             cursor_y -= (font_sup * 0.42 * mm)
 
-        cursor_y_inf = y + pad_y + 0.5 * mm
+        cursor_y_inf = y + pad_y + 0.4 * mm
 
         if precio_txt:
             c.setFont("Helvetica-Bold", font_pre)
-            c.drawCentredString(x + ancho_etq / 2.0, cursor_y_inf, precio_txt)
+            precio_fit = _ajustar_texto_al_ancho(c, precio_txt, "Helvetica-Bold", font_pre, ancho_util)
+            c.drawCentredString(x + ancho_etq / 2.0, cursor_y_inf, precio_fit)
             cursor_y_inf += (font_pre * 0.44 * mm)
 
         for linea in reversed(inf_list[:2]):
             c.setFont("Helvetica", font_inf)
-            c.drawCentredString(x + ancho_etq / 2.0, cursor_y_inf, linea[:max_chars])
+            inf_fit = _ajustar_texto_al_ancho(c, linea, "Helvetica", font_inf, ancho_util)
+            c.drawCentredString(x + ancho_etq / 2.0, cursor_y_inf, inf_fit)
             cursor_y_inf += (font_inf * 0.42 * mm)
 
         if mostrar_txt_cod:
             c.setFont("Helvetica", font_cod)
-            c.drawCentredString(x + ancho_etq / 2.0, cursor_y_inf, codigo_raw[:max_chars + 4])
+            cod_fit = _ajustar_texto_al_ancho(c, codigo_raw, "Helvetica", font_cod, ancho_util)
+            c.drawCentredString(x + ancho_etq / 2.0, cursor_y_inf, cod_fit)
             cursor_y_inf += (font_cod * 0.42 * mm)
 
         y_barra_inf = cursor_y_inf + 0.4 * mm
         y_barra_sup = cursor_y + 0.8 * mm
-        alto_barras = max(5.2 * mm, y_barra_sup - y_barra_inf)
+        alto_barras = max(5.0 * mm, y_barra_sup - y_barra_inf)
 
         if codigo_raw not in cache_barcodes:
             cache_barcodes[codigo_raw] = _generar_imagen_code128(codigo_raw, config_diseno["ancho_mm"])
@@ -299,6 +323,7 @@ def construir_pdf_4x6(cola_tickets: list, config_diseno: dict) -> bytes:
             height=alto_barras,
             preserveAspectRatio=False,
         )
+        c.restoreState()
 
     c.save()
     pdf_buffer.seek(0)
