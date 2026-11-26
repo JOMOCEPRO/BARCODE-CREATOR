@@ -3,7 +3,9 @@ from PyInstaller.utils.hooks import collect_all
 
 datas = [('app_barcode_creator.py', '.'), ('motor_etiquetas.py', '.'), ('base_datos.py', '.'), ('rutas.py', '.'), ('styles.css', '.'), ('LICENSE', '.')]
 binaries = []
-hiddenimports = ['pandas', 'openpyxl', 'sqlite3', 'win32print', 'win32api']
+hiddenimports = ['win32print', 'win32api', 'pywintypes']
+tmp_ret = collect_all('pywin32')
+datas += tmp_ret[0]; binaries += tmp_ret[1]; hiddenimports += tmp_ret[2]
 tmp_ret = collect_all('streamlit')
 datas += tmp_ret[0]; binaries += tmp_ret[1]; hiddenimports += tmp_ret[2]
 tmp_ret = collect_all('barcode')

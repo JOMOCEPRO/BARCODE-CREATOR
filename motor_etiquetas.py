@@ -158,20 +158,20 @@ def formatear_moneda_excel(valor: str, decimales: int = 0) -> str:
         return val
 
 
-def _dibujar_guias_corte_pagina(c: canvas.Canvas, margen_izq: float, margen_sup: float, ancho_etq: float, alto_etq: float, cols: int, filas: int, gap_h: float, gap_v: float):
+def _dibujar_guias_corte_pagina(c: canvas.Canvas, alto_lienzo: float, margen_izq: float, margen_sup: float, ancho_etq: float, alto_etq: float, cols: int, filas: int, gap_h: float, gap_v: float):
     c.saveState()
     c.setStrokeColorRGB(0.15, 0.15, 0.15)
     c.setLineWidth(0.6)
     ext = 3.0 * mm
 
-    y_top_grid = ALTO_HOJA_4X6 - margen_sup
+    y_top_grid = alto_lienzo - margen_sup
     y_bot_grid = y_top_grid - (filas * alto_etq) - ((filas - 1) * gap_v)
 
     for col_i in range(cols):
         x_izq = margen_izq + col_i * (ancho_etq + gap_h)
         x_der = x_izq + ancho_etq
         for x_pos in (x_izq, x_der):
-            c.line(x_pos, y_top_grid + 0.5 * mm, x_pos, min(ALTO_HOJA_4X6 - 0.5 * mm, y_top_grid + ext))
+            c.line(x_pos, y_top_grid + 0.5 * mm, x_pos, min(alto_lienzo - 0.5 * mm, y_top_grid + ext))
             c.line(x_pos, max(0.5 * mm, y_bot_grid - ext), x_pos, y_bot_grid - 0.5 * mm)
 
     x_right_grid = margen_izq + (cols * ancho_etq) + ((cols - 1) * gap_h)
@@ -193,20 +193,7 @@ def _ajustar_texto_al_ancho(c: canvas.Canvas, texto: str, fuente: str, tamano: f
     return txt
 
 
-def _ajustar_texto_al_ancho(c: canvas.Canvas, texto: str, fuente: str, tamano: float, ancho_max: float) -> str:
-    txt = str(texto).strip().upper()
-    while txt and c.stringWidth(txt, fuente, tamano) > ancho_max:
-        txt = txt[:-1]
-    return txt
-
-
 def construir_pdf_4x6(cola_tickets: list, config_diseno: dict) -> bytes:
-    pdf_buffer = io.BytesIO()
-    c = canvas.Canvas(pdf_buffer, pagesize=(ANCHO_HOJA_4X6, ALTO_HOJA_4X6))
-    c.setAuthor("JOMOCE-SOFT")
-    c.setCreator("BARCODE-CREATOR | JOMOCE-SOFT (GNU GPLv3)")
-    c.setSubject("ETIQUETAS CODE 128 - LICENCIA GNU GPLv3")
-
     ancho_etq = config_diseno["ancho_mm"] * mm
     alto_etq = config_diseno["alto_mm"] * mm
     cols = config_diseno["columnas"]
@@ -218,26 +205,34 @@ def construir_pdf_4x6(cola_tickets: list, config_diseno: dict) -> bytes:
     alto_total_grid = (filas * alto_etq) + ((filas - 1) * gap_v)
 
     margen_izq = max(0.8 * mm, (ANCHO_HOJA_4X6 - ancho_total_grid) / 2.0)
-    margen_sup = max(2.0 * mm, (ALTO_HOJA_4X6 - alto_total_grid) / 2.0)
+    margen_sup = max(0.0, float(config_diseno.get("margen_sup_mm", 1.0)) * mm)
+
+    alto_lienzo = max(ALTO_HOJA_4X6, margen_sup + alto_total_grid + (0.4 * mm))
+
+    pdf_buffer = io.BytesIO()
+    c = canvas.Canvas(pdf_buffer, pagesize=(ANCHO_HOJA_4X6, alto_lienzo))
+    c.setAuthor("JOMOCE-SOFT")
+    c.setCreator("BARCODE-CREATOR | JOMOCE-SOFT (GNU GPLv3)")
+    c.setSubject("ETIQUETAS CODE 128 - LICENCIA GNU GPLv3")
 
     tickets_por_hoja = cols * filas
     cache_barcodes = {}
 
     if config_diseno["guia_corte"] and len(cola_tickets) > 0:
-        _dibujar_guias_corte_pagina(c, margen_izq, margen_sup, ancho_etq, alto_etq, cols, filas, gap_h, gap_v)
+        _dibujar_guias_corte_pagina(c, alto_lienzo, margen_izq, margen_sup, ancho_etq, alto_etq, cols, filas, gap_h, gap_v)
 
     for idx, ticket in enumerate(cola_tickets):
         pos_hoja = idx % tickets_por_hoja
         if idx > 0 and pos_hoja == 0:
             c.showPage()
             if config_diseno["guia_corte"]:
-                _dibujar_guias_corte_pagina(c, margen_izq, margen_sup, ancho_etq, alto_etq, cols, filas, gap_h, gap_v)
+                _dibujar_guias_corte_pagina(c, alto_lienzo, margen_izq, margen_sup, ancho_etq, alto_etq, cols, filas, gap_h, gap_v)
 
         col_idx = pos_hoja % cols
         fila_idx = pos_hoja // cols
 
         x = margen_izq + col_idx * (ancho_etq + gap_h)
-        y = ALTO_HOJA_4X6 - margen_sup - ((fila_idx + 1) * alto_etq) - (fila_idx * gap_v)
+        y = alto_lienzo - margen_sup - ((fila_idx + 1) * alto_etq) - (fila_idx * gap_v)
 
         if config_diseno["guia_corte"]:
             c.saveState()
@@ -336,5 +331,3 @@ def enviar_a_impresora_windows(pdf_bytes: bytes, nombre_impresora: str):
         tmp.write(pdf_bytes)
         ruta_pdf = tmp.name
     win32api.ShellExecute(0, "printto", ruta_pdf, f'"{nombre_impresora}"', ".", 0)
-
-

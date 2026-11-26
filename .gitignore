@@ -22,3 +22,5 @@ CERTIFICADO_JOMOCE_SOFT/
 .agents/
 Thumbs.db
 desktop.ini
+*.pyc
+BACKUP_DRIVER_WHTP203E/

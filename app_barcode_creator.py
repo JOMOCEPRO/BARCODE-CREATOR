@@ -3,6 +3,7 @@
 # LICENCIA: GNU GENERAL PUBLIC LICENSE V3 (GNU GPLv3)
 # COPYRIGHT (C) 2026 JOMOCE-SOFT - TODOS LOS DERECHOS CONCEDIDOS BAJO GNU GPLv3
 # ==============================================================================
+
 import base64
 import streamlit as st
 import pandas as pd
@@ -148,29 +149,32 @@ tpl = st.session_state.get("tpl_activa", {})
 st.subheader("3. TAMANO DE ETIQUETA Y DISTRIBUCION EN HOJA DE 4 X 6 PULGADAS")
 
 PRESETS_4X6 = {
-    "3.2 X 2.5 CM (3 COLS X 5 FILAS = 15 TICKETS/HOJA) - ESTANDAR RETAIL 3 COLUMNAS": {
-        "ancho": 32.0, "alto": 25.0, "cols": 3, "filas": 5, "gap_h": 2.0, "gap_v": 2.0
+    "3.2 X 2.5 CM (3 COLS X 6 FILAS = 18 TICKETS/HOJA) - ESTANDAR RETAIL 3 COLUMNAS": {
+        "ancho": 32.0, "alto": 25.0, "cols": 3, "filas": 6, "gap_h": 2.0, "gap_v": 2.0, "margen_sup": 1.0
+    },
+    "3.2 X 2.5 CM (3 COLS X 5 FILAS = 15 TICKETS/HOJA) - RETAIL 5 FILAS": {
+        "ancho": 32.0, "alto": 25.0, "cols": 3, "filas": 5, "gap_h": 2.0, "gap_v": 2.0, "margen_sup": 0.0
     },
     "3.2 X 2.9 CM (3 COLS X 4 FILAS = 12 TICKETS/HOJA) - RECOMENDADO CON PRECIO": {
-        "ancho": 32.0, "alto": 29.0, "cols": 3, "filas": 4, "gap_h": 2.0, "gap_v": 2.0
+        "ancho": 32.0, "alto": 29.0, "cols": 3, "filas": 4, "gap_h": 2.0, "gap_v": 2.0, "margen_sup": 0.0
     },
     "1.8 X 2.0 CM (5 COLS X 6 FILAS = 30 TICKETS/HOJA) - ARTICULOS PEQUENOS": {
-        "ancho": 18.0, "alto": 20.0, "cols": 5, "filas": 6, "gap_h": 2.0, "gap_v": 2.0
+        "ancho": 18.0, "alto": 20.0, "cols": 5, "filas": 6, "gap_h": 2.0, "gap_v": 2.0, "margen_sup": 0.0
     },
     "4.8 X 2.5 CM (2 COLS X 5 FILAS = 10 TICKETS/HOJA) - COMERCIAL 50X25 MM": {
-        "ancho": 48.0, "alto": 25.0, "cols": 2, "filas": 5, "gap_h": 2.0, "gap_v": 2.0
+        "ancho": 48.0, "alto": 25.0, "cols": 2, "filas": 5, "gap_h": 2.0, "gap_v": 2.0, "margen_sup": 0.0
     },
     "4.0 X 2.0 CM (2 COLS X 6 FILAS = 12 TICKETS/HOJA) - FARMACIA / RETAIL": {
-        "ancho": 40.0, "alto": 20.0, "cols": 2, "filas": 6, "gap_h": 2.0, "gap_v": 2.0
+        "ancho": 40.0, "alto": 20.0, "cols": 2, "filas": 6, "gap_h": 2.0, "gap_v": 2.0, "margen_sup": 0.0
     },
     "3.0 X 1.5 CM (3 COLS X 8 FILAS = 24 TICKETS/HOJA) - COMPACTA CODIGO + PRECIO": {
-        "ancho": 30.0, "alto": 15.0, "cols": 3, "filas": 8, "gap_h": 2.0, "gap_v": 2.0
+        "ancho": 30.0, "alto": 15.0, "cols": 3, "filas": 8, "gap_h": 2.0, "gap_v": 2.0, "margen_sup": 0.0
     },
     "2.5 X 1.5 CM (3 COLS X 8 FILAS = 24 TICKETS/HOJA) - PIEZAS PEQUENAS": {
-        "ancho": 25.0, "alto": 15.0, "cols": 3, "filas": 8, "gap_h": 2.0, "gap_v": 2.0
+        "ancho": 25.0, "alto": 15.0, "cols": 3, "filas": 8, "gap_h": 2.0, "gap_v": 2.0, "margen_sup": 0.0
     },
     "PERSONALIZADO (DEFINIR MEDIDAS Y CUADRICULA EN HOJA 4 X 6 PULGADAS)": {
-        "ancho": 32.0, "alto": 25.0, "cols": 3, "filas": 5, "gap_h": 2.0, "gap_v": 2.0
+        "ancho": 32.0, "alto": 25.0, "cols": 3, "filas": 6, "gap_h": 2.0, "gap_v": 2.0, "margen_sup": 1.0
     },
 }
 
@@ -198,8 +202,9 @@ def_cols = int(tpl.get("columnas", vals["cols"])) if es_personalizado else vals[
 def_filas = int(tpl.get("filas", vals["filas"])) if es_personalizado else vals["filas"]
 def_gap_h = float(tpl.get("gap_h_mm", vals["gap_h"]))
 def_gap_v = float(tpl.get("gap_v_mm", vals["gap_v"]))
+def_margen_sup = float(tpl.get("margen_sup_mm", vals.get("margen_sup", 1.0)))
 
-c_dim1, c_dim2, c_dim3, c_dim4, c_dim5, c_dim6 = st.columns(6)
+c_dim1, c_dim2, c_dim3, c_dim4, c_dim5, c_dim6, c_dim7 = st.columns(7)
 with c_dim1:
     ancho_mm = st.number_input("ANCHO TICKET (MM)", min_value=12.0, max_value=98.0, value=def_ancho, step=0.5, disabled=not es_personalizado)
 with c_dim2:
@@ -209,16 +214,18 @@ with c_dim3:
 with c_dim4:
     filas = st.number_input("FILAS / HOJA", min_value=1, max_value=14, value=def_filas, step=1, disabled=not es_personalizado)
 with c_dim5:
-    gap_h_mm = st.number_input("SEPARACION HORIZ. (MM)", min_value=0.0, max_value=15.0, value=def_gap_h, step=0.5)
+    gap_h_mm = st.number_input("SEPARACION HORIZ. (MM)", min_value=0.0, max_value=15.0, value=def_gap_h, step=0.2)
 with c_dim6:
-    gap_v_mm = st.number_input("SEPARACION VERT. (MM)", min_value=0.0, max_value=15.0, value=def_gap_v, step=0.5)
+    gap_v_mm = st.number_input("SEPARACION VERT. (MM)", min_value=0.0, max_value=15.0, value=def_gap_v, step=0.2)
+with c_dim7:
+    margen_sup_mm = st.number_input("MARGEN SUP. CORTE (MM)", min_value=0.0, max_value=20.0, value=def_margen_sup, step=0.1)
 
 ancho_ocupado = (cols * ancho_mm) + ((cols - 1) * gap_h_mm)
-alto_ocupado = (filas * alto_mm) + ((filas - 1) * gap_v_mm)
+alto_ocupado = round(margen_sup_mm + (filas * alto_mm) + ((filas - 1) * gap_v_mm), 4)
 
-if ancho_ocupado > 100.0 or alto_ocupado > 150.0:
+if ancho_ocupado > 100.0 or alto_ocupado > 180.0:
     st.error(
-        f"LA DISTRIBUCION EXCEDE LA HOJA DE 4 X 6\" (101.6 X 152.4 MM): "
+        f"LA DISTRIBUCION EXCEDE EL LIMITE PERMITIDO DE IMPRESION: "
         f"OCUPA {ancho_ocupado:.1f} MM DE ANCHO X {alto_ocupado:.1f} MM DE ALTO."
     )
     st.stop()
@@ -293,6 +300,7 @@ with cg2:
                 "filas": int(filas),
                 "gap_h_mm": float(gap_h_mm),
                 "gap_v_mm": float(gap_v_mm),
+                "margen_sup_mm": float(margen_sup_mm),
                 "col_codigo": col_codigo,
                 "cols_superiores": cols_superiores,
                 "col_precio": col_precio,
@@ -462,6 +470,7 @@ config_diseno = {
     "filas": int(filas),
     "gap_h_mm": float(gap_h_mm),
     "gap_v_mm": float(gap_v_mm),
+    "margen_sup_mm": float(margen_sup_mm),
     "mostrar_texto_codigo": mostrar_texto_codigo,
     "guia_corte": guia_corte,
 }
